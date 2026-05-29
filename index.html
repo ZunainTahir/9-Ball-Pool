@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />				<!-- standard text encoding -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />				<!-- mobile friendly -->
+  <title>9-Ball Pool</title>				<!-- browser tab title -->
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Rajdhani:wght@400;600&display=swap"
+    rel="stylesheet" />				<!-- game fonts -->
+
+  <style>
+    * {
+      margin: 0;				/* remove default spacing */
+      padding: 0;
+      box-sizing: border-box;				/* padding stays inside the element */
+    }
+
+    body {
+      background-color: #060d08;				/* dark green background */
+      display: flex;
+      align-items: center;				/* center vertically */
+      justify-content: center;				/* center horizontally */
+      min-height: 100vh;				/* full screen height */
+      font-family: 'Rajdhani', sans-serif;				/* main font */
+      overflow: hidden;				/* no scrollbars */
+    }
+
+    #canvasWrap {
+      transform-origin: top left;				/* scale from top-left */
+    }
+
+    #gameCanvas {
+      display: block;				/* no gap below canvas */
+      cursor: crosshair;				/* aiming cursor */
+    }
+
+    #modal {
+      position: fixed;				/* covers the whole screen */
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 100;				/* above everything */
+      display: flex;
+      align-items: center;				/* center card vertically */
+      justify-content: center;				/* center card horizontally */
+      background: rgba(0, 0, 0, 0.92);				/* dark overlay */
+    }
+
+    #modalBox {
+      width: 420px;				/* card width */
+      padding: 50px 44px 42px;				/* inner spacing */
+      text-align: center;
+      position: relative;				/* for corner decorations */
+      background: linear-gradient(160deg, #0b1e10, #070f08);				/* dark green gradient */
+      border: 1px solid rgba(160, 120, 40, 0.4);				/* gold border */
+      border-radius: 4px;
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);				/* drop shadow */
+    }
+
+    #modalBox::before {
+      content: '';				/* top-left gold corner */
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      width: 28px;
+      height: 28px;
+      border-top: 2px solid rgba(160, 120, 40, 0.6);
+      border-left: 2px solid rgba(160, 120, 40, 0.6);
+    }
+
+    #modalBox::after {
+      content: '';				/* bottom-right gold corner */
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      border-bottom: 2px solid rgba(160, 120, 40, 0.6);
+      border-right: 2px solid rgba(160, 120, 40, 0.6);
+    }
+
+    .ballIcon {
+      font-size: 50px;				/* big ball emoji */
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .gameTitle {
+      font-family: 'Cinzel Decorative', serif;				/* fancy heading font */
+      font-size: 22px;
+      color: #c0963a;				/* gold color */
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    .gameSub {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.3);				/* faint subtitle */
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+
+    #nameInput {
+      display: block;
+      width: 100%;
+      padding: 13px 16px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.03);				/* nearly transparent */
+      border: 1px solid rgba(160, 120, 40, 0.3);				/* gold border */
+      border-radius: 2px;
+      color: #ddc880;				/* gold text */
+      outline: none;				/* no focus ring */
+      text-align: center;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;				/* smooth on focus */
+    }
+
+    #ameInput:focus {
+      border-color: rgba(160, 120, 40, 0.7);				/* brighter when typing */
+    }
+
+    #nameInput::placeholder {
+      color: rgba(192, 150, 58, 0.25);				/* faint placeholder */
+    }
+
+    #playBtn {
+      width: 100%;
+      padding: 13px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #a07020, #d4a840, #a07020);				/* gold button */
+      color: #060d04;				/* dark text on gold */
+      border: none;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;				/* hover/click animation */
+    }
+
+    #playBtn:hover {
+      opacity: 0.88;				/* dim on hover */
+      transform: translateY(-1px);				/* slight lift */
+    }
+
+    #playBtn:active {
+      transform: translateY(0);				/* press down on click */
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.2);				/* barely visible */
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Audio files -->
+  <audio id="hitSound" src="hit.mp3" preload="auto"></audio>				<!-- hit sound -->
+  <audio id="potSound" src="pot.mp3" preload="auto"></audio>				<!-- pot sound -->
+  <audio id="bgMusic" src="music.mp3" preload="auto" loop></audio>				<!-- looping music -->
+
+  <!-- Game Over Buttons -->
+  <div id="gameOverBtns" style="display:none; position:fixed; bottom:80px;
+     left:50%; transform:translateX(-50%); z-index:50; display:none;
+     gap:20px; flex-direction:row;">				<!-- shown when game ends -->
+    <button onclick="restartGame()" style="padding:14px 40px;
+    font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:600;
+    letter-spacing:4px; text-transform:uppercase;
+    background:linear-gradient(135deg,#a07020,#d4a840,#a07020);
+    color:#060d04; border:none; border-radius:2px; cursor:pointer;">
+      PLAY AGAIN				<!-- reloads for fresh game -->
+    </button>
+    <button onclick="exitGame()" style="padding:14px 40px;
+    font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:600;
+    letter-spacing:4px; text-transform:uppercase;
+    background:transparent; color:#c0963a;
+    border:2px solid rgba(160,120,40,0.5); border-radius:2px; cursor:pointer;">
+      EXIT				<!-- back to start screen -->
+    </button>
+  </div>
+
+  <!-- Exit button shown during game -->
+  <div id="exitBtn" style="display:none; position:fixed;
+     bottom:20px; left:35px; z-index:50;">				<!-- bottom-left during play -->
+    <button onclick="exitGame()" style="padding:10px 24px;
+    font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:600;
+    letter-spacing:3px; text-transform:uppercase;
+    background:transparent; color:#c0963a;
+    border:1px solid rgba(160,120,40,0.4); border-radius:2px; cursor:pointer;">
+      EXIT				<!-- quit to name screen -->
+    </button>
+  </div>
+
+  <div id="modal">				<!-- name entry popup -->
+    <div id="modalBox">
+      <span class="ballIcon">🎱</span>				<!-- pool ball emoji -->
+      <h1 class="gameTitle">9-Ball Pool</h1>				<!-- main title -->
+      <p class="gameSub">Championship Edition</p>				<!-- subtitle -->
+      <input id="nameInput" type="text" maxlength="20" placeholder="Enter your name…" autocomplete="off" />				<!-- name field, max 20 chars -->
+      <button id="playBtn">Break &amp; Play</button>				<!-- start button -->
+      <p class="hint">Press Enter or click above</p>				<!-- helper text -->
+    </div>
+  </div>
+
+  <div id="canvasWrap">				<!-- scales canvas without stretching -->
+    <canvas id="gameCanvas"></canvas>				<!-- game draws here -->
+  </div>
+
+  <script>
+
+    var SCREEN_W = 1800 * 0.85;				// matches C++ canvas width
+    var SCREEN_H = 900 * 0.85;				// matches C++ canvas height
+
+    var canvas = document.getElementById("gameCanvas");
+    canvas.width = SCREEN_W;				// set pixel width
+    canvas.height = SCREEN_H;				// set pixel height
+
+    // ── Audio functions — must be GLOBAL so C++ can call them ──
+    function playHit() {
+      var s = document.getElementById("hitSound");
+      s.currentTime = 0;				// rewind then play
+      s.play();
+    }
+
+    function playPot() {
+      var s = document.getElementById("potSound");
+      s.currentTime = 0;				// rewind then play
+      s.play();
+    }
+
+    function startMusic() {
+      var m = document.getElementById("bgMusic");
+      m.volume = 0.4;				// low volume
+      m.play();
+    }
+
+    function restartGame() {
+      location.reload();				// fresh game
+    }
+
+    function exitGame() {
+      location.reload();				// back to name screen
+    }
+
+    function showGameOverButtons() {
+      var btns = document.getElementById("gameOverBtns");
+      btns.style.display = "flex";				// show end-game buttons
+    }
+
+    // ── Fit canvas to screen ──
+    function fitToScreen() {
+      var scaleX = window.innerWidth / SCREEN_W;				// horizontal fit ratio
+      var scaleY = window.innerHeight / SCREEN_H;				// vertical fit ratio
+      var scale = Math.min(scaleX, scaleY, 1);				// use smaller, never upscale
+
+      var wrap = document.getElementById("canvasWrap");
+      wrap.style.width = SCREEN_W + "px";				// fixed internal width
+      wrap.style.height = SCREEN_H + "px";
+      wrap.style.transform = "scale(" + scale + ")";				// shrink visually
+      wrap.style.position = "absolute";
+      wrap.style.left = ((window.innerWidth - SCREEN_W * scale) / 2) + "px";				// center x
+      wrap.style.top = ((window.innerHeight - SCREEN_H * scale) / 2) + "px";				// center y
+    }
+
+    fitToScreen();				// run on load
+    window.addEventListener("resize", fitToScreen);				// run on resize
+
+    var Module = {
+      onRuntimeInitialized: function () {
+        Module._ctx = canvas.getContext("2d");				// give C++ the drawing context
+        document.getElementById("nameInput").focus();				// auto-focus name field
+      }
+    };
+
+    function startGame() {
+      var name = document.getElementById("nameInput").value.trim();				// clean the input
+      if (name === "") { name = "Player"; }				// default if blank
+      if (name.length > 20) { name = name.substring(0, 20); }				// cap at 20 chars
+      document.getElementById("modal").style.display = "none";				// hide popup
+      document.getElementById("exitBtn").style.display = "block";				// show exit button
+      Module.ccall("startGame", null, ["string"], [name]);				// call C++ to start
+    }
+
+    document.getElementById("playBtn").onclick = startGame;				// button click starts game
+
+    document.getElementById("nameInput").onkeydown = function (e) {
+      if (e.key === "Enter") { startGame(); }				// Enter also starts game
+    };
+
+  </script>
+
+  <script src="PoolGame.js"></script>				<!-- compiled C++ game -->
+
+</body>
+
+</html>
